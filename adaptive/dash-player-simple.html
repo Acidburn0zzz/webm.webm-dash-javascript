@@ -1,0 +1,49 @@
+<!--
+Copyright (c) 2012 The WebM project authors. All Rights Reserved.
+Use of this source code is governed by a BSD-style license
+that can be found in the LICENSE file in the root of the source
+tree. An additional intellectual property rights grant can be found
+in the file PATENTS.  All contributing project authors may
+be found in the AUTHORS file in the root of the source tree.
+-->
+
+<html>
+  <head>
+    <title>WebM Dash Demo</title>
+
+<script type="text/javascript" src="../shared/http.js"> </script>
+<script type="text/javascript" src="../shared/utils.js"> </script>
+<script type="text/javascript" src="../shared/webm_parser.js"> </script>
+<script type="text/javascript" src="../shared/webm_utils.js"> </script>
+<script type="text/javascript" src="bandwidth.js"> </script>
+<script type="text/javascript" src="dash_parser.js"> </script>
+<script type="text/javascript" src="dash_player.js"> </script>
+
+<script type="text/javascript">
+
+// Global
+var wmp = null;
+
+function onStartClick() {
+  var videoTag = document.getElementById('v');
+  if (!videoTag.webkitMediaSourceURL) {
+    alert('Video tag does not have webkitMediaSourceURL!\n' +
+          'Make sure you are using Chrome version 17+.\n' +
+          'Then go to "about:flags" and turn on\n' +
+          '"Enable Media Source API on <video> elements"');
+    return;
+  }
+
+  wmp = new DashPlayer('webm_dash_mevq-vid6-aud1.xml', videoTag);
+  videoTag.src = videoTag.webkitMediaSourceURL;
+}
+
+</script>
+
+</head>
+  <body>
+    <input type="button" value="Start" onClick="onStartClick();"><br/>
+    <video id="v" controls="true" autoplay>
+    </video>
+  </body>
+</html>

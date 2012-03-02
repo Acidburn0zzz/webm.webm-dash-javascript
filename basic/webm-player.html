@@ -1,0 +1,149 @@
+<!--
+Copyright (c) 2012 The WebM project authors. All Rights Reserved.
+Use of this source code is governed by a BSD-style license
+that can be found in the LICENSE file in the root of the source
+tree. An additional intellectual property rights grant can be found
+in the file PATENTS.  All contributing project authors may
+be found in the AUTHORS file in the root of the source tree.
+-->
+
+<html>
+  <head>
+    <title>WebM test</title>
+
+ <script type="text/javascript" src="../shared/utils.js"> </script>
+
+   <script type="text/javascript">
+     function log(str) {
+       logToElement('c', str);
+     }
+   </script>
+
+    <script type="text/javascript" src="../shared/http.js"> </script>
+    <script type="text/javascript" src="../shared/webm_parser.js"> </script>
+    <script type="text/javascript" src="../shared/webm_utils.js"> </script>
+
+    <script type="text/javascript" src="webm_player.js"> </script>
+    <script type="text/javascript">
+
+
+function vt_log(str) {
+  document.getElementById('video_tag_log').innerHTML += str + "<br/>"
+}
+
+function onEvent(name, v) {
+ vt_log(name + " : " );
+//        " " + errorName(v.error) + "<br/>" +
+//        " " + readyStateName(v.readyState) + "<br/>" +
+//        " " + networkStateName(v.networkState));
+}
+
+function onPageLoad() {
+ vt_log("onPageLoad()");
+ v = document.getElementById('v');
+
+ var events = [
+    'loadstart',
+    'progress',
+    'suspend',
+    'abort',
+    'error',
+    'emptied',
+    'stalled',
+    'play',
+    'pause',
+    'loadedmetadata',
+    'loadeddata',
+    'waiting',
+    'playing',
+    'canplay',
+    'canplaythrough',
+    'seeking',
+    'seeked',
+    //'timeupdate',
+    'ended',
+    'ratechange',
+    //'durationchange',
+    'volumechange',
+    'webkitsourceopen',
+    'webkitsourceended',
+    'webkitsourceclose',
+  ];
+
+  for (var i = 0; i < events.length; ++i) {
+    v.addEventListener(events[i], function (e) { onEvent(e.type, v); }, false);
+  }
+
+
+  // Extract the 'url' parameter from the document URL.
+  var regex = new RegExp("[\\?&]url=([^&#]*)");
+  var results = regex.exec( window.location.href );
+  if (results == null)
+    return;
+  var url = results[1];
+
+  // Assign to the input field.
+  u = document.getElementById('u');
+  u.value = url;
+}
+
+function onStartClick() {
+  u = document.getElementById('u');
+  var url = u.value;
+  if (url == null || url.length == 0) {
+    log('Need a URL in the text box.');
+    return;
+  }
+  startPlayer(url);
+}
+
+var wmp = null;
+
+function status_func() {
+  var status = document.getElementById('status');
+  if (wmp) {
+    status.innerHTML = "ql " + wmp.getClusterQueueLength() +
+                     "/" + wmp.getClusterQueueThreshold() + "<br/>";
+    status.innerHTML += wmp.getSecondsBufferedAhead() + "<br/>";
+  }
+
+  window.setTimeout(status_func, 250);
+};
+window.setTimeout(status_func, 250);
+
+var wid = 0;
+function startPlayer(url) {
+  log('startPlayer ' + url);
+  var video_tag = document.getElementById('v');
+  var player_log = document.getElementById('player_log');
+
+  if (!video_tag.webkitMediaSourceURL) {
+    vt_log("Video tag does not have webkitMediaSourceURL!");
+    return;
+  }
+
+  wmp = new WebMPlayer(url, video_tag, wid++);
+  wmp.log = function(str) { if (player_log) player_log.innerHTML += str + "<br/>"; }
+
+  video_tag.controls = true;
+  video_tag.src = video_tag.webkitMediaSourceURL;
+}
+
+addPageLoadEvent(onPageLoad);
+
+    </script>
+  </head>
+  <body>
+    <input id="u" type="text" size="80" /><input type="button" value="Start" onClick="onStartClick();"><br/>
+    <div id="status" style="width:100px; float:right;"> </div>
+    <video id="v" autoplay>
+    </video>
+   <table>
+    <tr>
+     <td style="width:33%; vertical-align:text-top;"><div id="video_tag_log"> </div></td>
+     <td style="width:33%; vertical-align:text-top;"><div id="c"> </div></td>
+     <td style="width:33%; vertical-align:text-top;"><div id="player_log"> </div></td>
+    </tr>
+   </table>
+  </body>
+</html>

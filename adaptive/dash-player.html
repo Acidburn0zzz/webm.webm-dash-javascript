@@ -1,0 +1,269 @@
+<!--
+Copyright (c) 2012 The WebM project authors. All Rights Reserved.
+Use of this source code is governed by a BSD-style license
+that can be found in the LICENSE file in the root of the source
+tree. An additional intellectual property rights grant can be found
+in the file PATENTS.  All contributing project authors may
+be found in the AUTHORS file in the root of the source tree.
+-->
+
+<html>
+  <head>
+    <title>WebM Dash Manifest test</title>
+
+<script type="text/javascript" src="../shared/http.js"> </script>
+<script type="text/javascript" src="../shared/utils.js"> </script>
+<script type="text/javascript" src="../shared/webm_parser.js"> </script>
+<script type="text/javascript" src="../shared/webm_utils.js"> </script>
+<script type="text/javascript" src="bandwidth.js"> </script>
+<script type="text/javascript" src="bandwidth_manager.js"> </script>
+<script type="text/javascript" src="dash_parser.js"> </script>
+<script type="text/javascript" src="dash_player.js"> </script>
+
+<script type="text/javascript">
+
+// Global variables
+var wmp = null;
+var renderChunkGraph = true;
+
+/**
+ * List of chunk objects that have not been rendered.
+ * @type {Array.<Object>}
+ */
+var graphChunkData = [];
+
+/**
+ * Flag telling if the background graph data has been rendered.
+ * @type {boolean}
+ */
+var clearChunkDrawBackground = true;
+
+// Sets a manager that controls all the downloads using XMLHttpRequests.
+var bandwidthManager = new BandwidthManager(log);
+
+/**
+ * Logging function.
+ * @param {string} str String to be logged.
+ */
+function log(str) {
+  console.log(str);
+}
+
+/**
+ * Function called when page is loaded.
+ */
+function onPageLoad() {
+  log('onPageLoad()');
+
+  // Extract the 'url' parameter from the document URL.
+  var regex = new RegExp('[\\?&]url=([^&#]*)');
+  var results = regex.exec(window.location.href);
+  if (results == null)
+    return;
+  var url = results[1];
+
+  // Assign to the input field.
+  var u = document.getElementById('u');
+  u.value = url;
+
+  // Set the kbps.
+  var kbps = document.getElementById('kbps');
+  kbps.value = bandwidthManager.getDownloadKilobitsPerSecond() + '';
+}
+
+function onStartClick() {
+  var u = document.getElementById('u');
+  var url = u.value;
+  if (url == null || url.length == 0) {
+    log('Need a URL in the text box.');
+    return;
+  }
+
+  var pattern = /\.([0-9a-z]+)(?:[\?#]|$)/i;
+  var ext = url.match(pattern);
+  if (!ext) {
+    log('Could not extract extension!');
+    return;
+  }
+
+  var videoTag = document.getElementById('v');
+  if (!videoTag.webkitMediaSourceURL) {
+    log('Video tag does not have webkitMediaSourceURL!');
+    alert('Video tag does not have webkitMediaSourceURL!\n' +
+          'Make sure you are using Chrome version 17+.\n' +
+          'Then go to "about:flags" and turn on\n' +
+          '"Enable Media Source API on <video> elements"');
+    return;
+  }
+
+  wmp = new DashPlayer(url, videoTag, bandwidthManager, log);
+  if (!wmp) {
+    log('Could not create DashPlayer!');
+    return;
+  }
+
+  var versions = document.getElementById('versions');
+  versions.innerHTML = DashPlayer.versionStringsHTML();
+
+  videoTag.controls = true;
+  videoTag.src = videoTag.webkitMediaSourceURL;
+
+  if (renderChunkGraph) {
+    wmp.setEventListener('chunk_download', onChunkDownload);
+    videoTag.addEventListener('seeking', onSeeking);
+    window.setTimeout(statusFunc, 250);
+  }
+}
+
+function onSetMaxKbpsVideo() {
+  var kbps = parseInt(document.getElementById('kbps').value);
+  if (kbps > 0)
+    bandwidthManager.setDownloadKilobitsPerSecond(kbps);
+}
+
+function statusFunc() {
+  drawChunkGraph();
+
+  if (renderChunkGraph)
+    window.setTimeout(statusFunc, 250);
+}
+
+function drawChunkGraph() {
+  var canvas = document.getElementById('chunkgraph');
+  var c = canvas.getContext('2d');
+  var x = 0;
+  var y = 0;
+  var w = canvas.width;
+  var h = canvas.height;
+  onChunkDraw(c, x, y, w, h);
+}
+
+function onToggleChunkClick() {
+  var button = document.getElementById('toggleChunk');
+  var canvas = document.getElementById('chunkgraph');
+  if (button.value == 'Show Chunk Graph') {
+    renderChunkGraph = true;
+    canvas.style.display = 'block';
+    button.value = 'Hide Chunk Graph';
+    if (wmp) {
+      wmp.setEventListener('chunk_download', onChunkDownload);
+      document.getElementById('v').addEventListener('seeking', onSeeking);
+      window.setTimeout(statusFunc, 250);
+    }
+  } else {
+    if (wmp) {
+      wmp.removeEventListener('chunk_download');
+      document.getElementById('v').removeEventListener('seeking', onSeeking);
+      graphChunkData = [];
+    }
+    renderChunkGraph = false;
+    canvas.style.display = 'none';
+    button.value = 'Show Chunk Graph';
+  }
+}
+
+function onChunkDownload(data) {
+  // Only render the video stream.
+  if (data['type'] == 'video') {
+    graphChunkData.push(data);
+  }
+}
+
+function onSeeking() {
+  clearChunkDrawBackground = true;
+}
+
+/**
+ * Renders chunks downloaded by stream and duration to a canvas.
+ * @param {Canvas} c The canvas for rendering.
+ * @param {number} x The left most position on the canvas for rendering.
+ * @param {number} y The top most position on the canvas for rendering.
+ * @param {number} w The width on the canvas for rendering starting from x.
+ * @param {number} h The height on the canvas for rendering starting from y.
+ */
+function onChunkDraw(c, x, y, w, h) {
+  if (graphChunkData.length == 0 || !wmp)
+    return;
+
+  var as = wmp.getVideoAdaptationSet();
+  if (!as)
+    return;
+
+  if (clearChunkDrawBackground) {
+    c.clearRect(x, y, w, h);
+    c.beginPath();
+    c.font = '10pt Arial';
+    var totalRows = as.representationList.length;
+    var rowHeight = h / (totalRows * 2);
+    for (var i = 0; i < totalRows; ++i) {
+      c.fillStyle = 'red';
+      c.fillRect(x + 40, ((i * 2) * rowHeight) + y, w - 40, rowHeight);
+      c.fillStyle = 'black';
+      var index = totalRows - 1 - i;
+      var representation = as.representationList[index];
+      var kbps = representation.bandwidth / 1000;
+      c.fillText(kbps.toFixed() + '', x, (((i * 2) + 1) * rowHeight) + y);
+    }
+
+    clearChunkDrawBackground = false;
+  }
+
+  x += 40;
+  w -= 40;
+
+  var l = graphChunkData.length;
+  if (l > 0) {
+    var duration = as.getDuration();
+    if (duration == 0)
+      return;
+
+    var mediaListLength = as.representationList.length;
+
+    c.beginPath();
+    c.fillStyle = 'green';
+    for (var i = 0; i < l; ++i) {
+      var node = graphChunkData.shift();
+      var index = -1;
+      // find  index
+      for (var j = 0; j < mediaListLength; ++j) {
+        if (node.id == as.representationList[j].id) {
+          index = mediaListLength - 1 - j;
+          break;
+        }
+      }
+
+      var endTime = node.endTime;
+      if (endTime == -1)
+        endTime = duration;
+
+      var totalRows = as.representationList.length * 2;
+      var rowHeight = h / totalRows;
+      var left = ((node.time / duration) * w) + x;
+      var right = ((endTime - node.time) / duration) * w;
+      var top = index * 2 * rowHeight;
+      var bottom = rowHeight;
+      c.fillRect(left, top, right, bottom);
+    }
+  }
+}
+
+addPageLoadEvent(onPageLoad);
+
+</script>
+
+</head>
+  <body>
+    <input id="u" type="text" size="80" /><input type="button" value="Start" onClick="onStartClick();"><br/>
+    <video id="v" autoplay>
+    </video>
+
+    <hr>
+    <canvas id="chunkgraph" width="800" height="100">
+      Chunk Graph
+    </canvas>
+    <hr>
+    <input id="toggleChunk" type="button" value="Hide Chunk Graph" onClick="onToggleChunkClick();">
+    Max kbps video<input id="kbps" type="text" size="10" /><input type="button" value="Set" onClick="onSetMaxKbpsVideo();"><br/>
+    <div id="versions"></div>
+  </body>
+</html>
