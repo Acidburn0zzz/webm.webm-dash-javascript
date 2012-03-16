@@ -194,6 +194,18 @@ function onChunkDraw(c, x, y, w, h) {
     c.beginPath();
     c.font = '10pt Arial';
     var totalRows = as.representationList.length;
+
+    // Check if all of the Representations have an index. We want to display
+    // the average bandwidth of the video stream on the y-axis.
+    var outputAverageBandwidth = true;
+    for (var i = 0; i < totalRows; ++i) {
+      var representation = as.representationList[i];
+      if (!representation.indexRange()) {
+        outputAverageBandwidth = false;
+        break;
+      }
+    }
+
     var rowHeight = h / (totalRows * 2);
     for (var i = 0; i < totalRows; ++i) {
       c.fillStyle = 'red';
@@ -201,8 +213,15 @@ function onChunkDraw(c, x, y, w, h) {
       c.fillStyle = 'black';
       var index = totalRows - 1 - i;
       var representation = as.representationList[index];
-      var kbps = representation.bandwidth / 1000;
-      c.fillText(kbps.toFixed() + '', x, (((i * 2) + 1) * rowHeight) + y);
+      var kbps = 0;
+      var duration = as.getDuration();
+      if (outputAverageBandwidth && duration) {
+        var seekIndex = representation.indexRange();
+        kbps = (seekIndex[1] / 125) / duration;
+      } else {
+        kbps = representation.bandwidth / 1000;
+      }
+      c.fillText(kbps.toFixed() + '', x, (((i * 2) + 1) * rowHeight) + y + 1);
     }
 
     clearChunkDrawBackground = false;
