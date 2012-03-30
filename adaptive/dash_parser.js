@@ -35,7 +35,7 @@ DashParser.HTTP_OK_STATUS_CODE = 200;
  * @return {string} version.
  */
 DashParser.version = function() {
-  return '0.1.0.0';
+  return '0.1.0.1';
 };
 
 /**
@@ -583,7 +583,7 @@ AdaptationSet.prototype.parseXmlNode = function(node) {
   this.height_ = parseInt(node.getAttribute('height'));
   this.id = node.getAttribute('id');
   this.lang = node.getAttribute('lang');
-  this.mimetype_ = node.getAttribute('mimetype');
+  this.mimetype_ = node.getAttribute('mimeType');
   this.segmentAlignment = node.getAttribute('segmentAlignment') === 'true';
   this.subsegmentAlignment_ =
       node.getAttribute('subsegmentAlignment') === 'true';
