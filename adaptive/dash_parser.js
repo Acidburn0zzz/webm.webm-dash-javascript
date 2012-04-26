@@ -158,8 +158,8 @@ SegmentBase.parseSegmentBaseXML = function(node) {
       return NULL;
   }
 
-  // There should be at most one Initialisation element.
-  var initNode = node.getElementsByTagName('Initialisation');
+  // There should be at most one Initialization element.
+  var initNode = node.getElementsByTagName('Initialization');
   if (initNode.length > 0) {
     var attribute = initNode[0].getAttribute('range');
     if (attribute) {
