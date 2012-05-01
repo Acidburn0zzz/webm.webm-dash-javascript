@@ -898,7 +898,7 @@ DashPlayer.prototype.doNeedKey = function(e) {
   var key = key_id;
   this.log('Adding key for the following ID: ');
   this.log(key_id);
-  this.videoElement.webkitAddKey("webkit-org.w3.clearkey", key, key_id);
+  this.videoElement.webkitAddKey('webkit-org.w3.clearkey', key, key_id);
 };
 
 /**
