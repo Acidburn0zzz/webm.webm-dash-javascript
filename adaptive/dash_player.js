@@ -551,6 +551,12 @@ function DashPlayer(url, videoElement, opt_manager, opt_log) {
   this.videoElement.addEventListener('webkitsourceclose', function() {
     t.doClose();
   });
+  this.videoElement.addEventListener('webkitneedkey', function(e) {
+    t.doNeedKey(e);
+  });
+  this.videoElement.addEventListener('webkitkeyadded', function() {
+    t.doKeyAdded();
+  });
   this.videoElement.addEventListener('seeking', function() {
     t.doSeeking();
   });
@@ -879,6 +885,33 @@ DashPlayer.prototype.doSeeking = function() {
 };
 
 /**
+ * Handle Media Source webkitneedkey event.
+ * @param {Object} e Need key message.
+ */
+DashPlayer.prototype.doNeedKey = function(e) {
+  this.log('doNeedKey() : ');
+  var key_id = e.initData;
+  this.log('Need key for the following ID: ');
+  this.log(key_id);
+  // In a real implementation, we would fetch the key. For now, the key ID is
+  // the key.
+  var key = key_id;
+  this.log('Adding key for the following ID: ');
+  this.log(key_id);
+  this.videoElement.webkitAddKey("webkit-org.w3.clearkey", key, key_id);
+};
+
+/**
+ * Handle Media Source webkitkeyadded event.
+ */
+DashPlayer.prototype.doKeyAdded = function() {
+  this.log('doKeyAdded() : ');
+  // TODO(xhwang): Remove and restore original call point when Chrome is capable
+  // of resuming playback when key is added. See http://crbug.com/125753.
+  this.loadFirstClusters();
+};
+
+/**
  * Tells the video tag there was a parsing error on the stream.
  */
 DashPlayer.prototype.reportParseError = function() {
@@ -1197,7 +1230,11 @@ DashPlayer.prototype.onParseHeadersDone = function(success) {
 
   this.changeState(DashPlayer.LOADING);
   this.appendData(infoTracks);
-  this.loadFirstClusters();
+  // TODO(xhwang): Until Chrome is capable of resuming playback when a key is
+  // added, we must not load the clusters. See http://crbug.com/125753.
+  // For now, only do this if EME is not enabled.
+  if (!this.videoElement.webkitAddKey)
+    this.loadFirstClusters();
 };
 
 /**
