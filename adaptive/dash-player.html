@@ -173,6 +173,10 @@ function onSeeking() {
   clearChunkDrawBackground = true;
 }
 
+function onMediaError(e) {
+  alert('Encountered MediaError ' + e.target.error.code);
+}
+
 /**
  * Renders chunks downloaded by stream and duration to a canvas.
  * @param {Canvas} c The canvas for rendering.
@@ -273,7 +277,7 @@ addPageLoadEvent(onPageLoad);
 </head>
   <body>
     <input id="u" type="text" size="80" value="webm_dash_mevq-key-enc-vid6-aud1.mpd.xml" /><input type="button" value="Start" onClick="onStartClick();"><br/>
-    <video id="v" autoplay>
+    <video id="v" autoplay onerror="onMediaError(event)">
     </video>
 
     <hr>
