@@ -885,24 +885,63 @@ DashPlayer.prototype.doSeeking = function() {
 };
 
 /**
- * Handle Media Source webkitneedkey event.
- * @param {Object} e Need key message.
+ * Add the specified key to the Media Element.
+ * @param {Uint8Array} key The key.
+ * @param {Uint8Array} initData initData corresponding to the key.
  */
-DashPlayer.prototype.doNeedKey = function(e) {
-  this.log('doNeedKey() : ');
-  var key_id = e.initData;
-  this.log('Need key for the following ID: ');
-  this.log(key_id);
-  // In a real implementation, we would fetch the key. For now, the key ID is
-  // the key.
-  var key = key_id;
+DashPlayer.prototype.addKey = function(key, initData) {
+  var keyId = initData;
   this.log('Adding key for the following ID: ');
-  this.log(key_id);
-  this.videoElement.webkitAddKey('webkit-org.w3.clearkey', key, key_id);
+  this.log(keyId);
+  this.videoElement.webkitAddKey('webkit-org.w3.clearkey', key, initData);
 };
 
 /**
- * Handle Media Source webkitkeyadded event.
+ * Handles responses to license request XHR.
+ * @this {XMLHttpRequest}
+ */
+function handleLicenseResponse() {
+  if (this.status == 200 && this.response != null) {
+    var key = new Uint8Array(this.response);
+    this.playerPrototype.addKey(key, this.initData);
+    return;
+  }
+  alert('Error obtaining key!');
+}
+
+/**
+ * Sends a request for a license to the server.
+ * @param {Uint8Array} initData initData corresponding to the requested key.
+ * @param {DashPlayer.prototype} playerPrototype requesting the key.
+ */
+function requestLicense(initData, playerPrototype) {
+  var licenseUrl = 'key.bin';
+  var licenseRequest = initData;
+
+  var xhr = new XMLHttpRequest();
+  xhr.initData = initData;  // Store so can associate with key in response.
+  xhr.playerPrototype = playerPrototype;  // Store for reference in callback.
+  xhr.responseType = 'arraybuffer';  // Can easily convert to a Uint8Array.
+  xhr.onload = handleLicenseResponse;
+  xhr.open('POST', licenseUrl, true);
+  xhr.send(licenseRequest);
+}
+
+/**
+ * Handle Media Element needkey event.
+ * @param {MediaKeyEvent} e Need key event.
+ */
+DashPlayer.prototype.doNeedKey = function(e) {
+  this.log('doNeedKey() : ');
+  var keyId = e.initData;
+  this.log('Need key for the following ID: ');
+  this.log(keyId);
+
+  requestLicense(e.initData, this);
+};
+
+/**
+ * Handle Media Element keyadded event.
  */
 DashPlayer.prototype.doKeyAdded = function() {
   this.log('doKeyAdded() : ');
