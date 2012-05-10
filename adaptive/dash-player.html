@@ -88,10 +88,11 @@ function onStartClick() {
 
   var videoTag = document.getElementById('v');
   if (!videoTag.webkitMediaSourceURL) {
-    log('Video tag does not have webkitMediaSourceURL!');
-    alert('Video tag does not have webkitMediaSourceURL!\n' +
+    var str = 'Video tag does not have Media Source API support!';
+    log(str);
+    alert(str + '\n' +
           'Make sure you are using Chrome version 17+.\n' +
-          'Then go to "about:flags" and turn on\n' +
+          'Then go to "chrome://flags" and turn on\n' +
           '"Enable Media Source API on <video> elements"');
     return;
   }
@@ -276,7 +277,7 @@ addPageLoadEvent(onPageLoad);
 
 </head>
   <body>
-    <input id="u" type="text" size="80" value="webm_dash_mevq-key-enc-vid6-aud1.mpd.xml" /><input type="button" value="Start" onClick="onStartClick();"><br/>
+    <input id="u" type="text" size="80" /><input type="button" value="Start" onClick="onStartClick();"><br/>
     <video id="v" autoplay onerror="onMediaError(event)">
     </video>
 
