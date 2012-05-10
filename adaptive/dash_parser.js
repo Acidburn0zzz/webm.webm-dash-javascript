@@ -35,7 +35,7 @@ DashParser.HTTP_OK_STATUS_CODE = 200;
  * @return {string} version.
  */
 DashParser.version = function() {
-  return '0.1.0.1';
+  return '0.1.0.2';
 };
 
 /**
@@ -105,6 +105,7 @@ DashParser.prototype.load = function(callback) {
   } else {
     xhReq = new ActiveXObject('Microsoft.XMLHTTP');
   }
+  xhReq.overrideMimeType('text/xml');
 
   xhReq.onreadystatechange = function() {
     if (xhReq.readyState != 4) {
