@@ -602,7 +602,7 @@ DashPlayer.ERROR = 6;
  * @return {string} version.
  */
 DashPlayer.version = function() {
-  return '0.1.0.0';
+  return '0.1.0.1';
 };
 
 /**
@@ -916,15 +916,20 @@ function handleLicenseResponse() {
  */
 function requestLicense(initData, playerPrototype) {
   var licenseUrl = 'key.bin';
-  var licenseRequest = initData;
 
   var xhr = new XMLHttpRequest();
   xhr.initData = initData;  // Store so can associate with key in response.
   xhr.playerPrototype = playerPrototype;  // Store for reference in callback.
   xhr.responseType = 'arraybuffer';  // Can easily convert to a Uint8Array.
   xhr.onload = handleLicenseResponse;
-  xhr.open('POST', licenseUrl, true);
-  xhr.send(licenseRequest);
+  //Because the demo runs on a simple web sever, we must use GET.
+  //A more realistic solution is:
+  //var licenseUrl = 'license.example.com';
+  //var licenseRequest = initData;
+  //xhr.open('POST', licenseUrl, true);
+  //xhr.send(licenseRequest);
+  xhr.open('GET', licenseUrl);
+  xhr.send();
 }
 
 /**
