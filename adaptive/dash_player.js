@@ -538,6 +538,13 @@ function DashPlayer(url, videoElement, opt_manager, opt_log) {
   this.webMFilesMap_ = {};
   this.eventCallbacks_ = {};
 
+  this.mediaSourceVersion_ = 0.3;
+  if (this.videoElement.webkitSourceAddId)
+    this.mediaSourceVersion_ = 0.5;
+
+  this.log('Created DashPlayer. this.mediaSourceVersion_:' +
+           this.mediaSourceVersion_);
+
   var t = this;
   this.videoElement.addEventListener('webkitsourceopen', function() {
     t.doOpen(function() {
@@ -602,7 +609,7 @@ DashPlayer.ERROR = 6;
  * @return {string} version.
  */
 DashPlayer.version = function() {
-  return '0.1.0.1';
+  return '0.2.0.0';
 };
 
 /**
@@ -773,6 +780,20 @@ DashPlayer.prototype.period = null;
 DashPlayer.prototype.webMFilesMap_ = null;
 
 /**
+ * The source ID string for Media Source API.
+ * @private
+ * @type {string}
+ */
+DashPlayer.prototype.mediaSourceIDString_ = 'source1';
+
+/**
+ * Media Source API version.
+ * @private
+ * @type {number}
+ */
+DashPlayer.prototype.mediaSourceVersion_ = 0.3;
+
+/**
  * Logging function to be set by the application.
  * @param {string} str The input string to be logged.
  */
@@ -817,6 +838,11 @@ DashPlayer.prototype.doOpen = function(setupStreamsFunction) {
     return new ErrorStatus(errorStr);
   }
 
+  if (this.mediaSourceVersion_ == 0.5) {
+    this.videoElement.webkitSourceAddId(this.mediaSourceIDString_,
+                                        'video/webm; codecs="vp8, vorbis"');
+  }
+
   if (this.dashParser == null) {
     var res = this.parseManifest(function() {
       setupStreamsFunction();
@@ -858,7 +884,7 @@ DashPlayer.prototype.doSeeking = function() {
   this.seekSequenceNum += 1;
   this.seekTime = this.videoElement.currentTime;
 
-  this.log('doSeeking ' + this.seekTime);
+  this.log('doSeeking ' + this.seekTime + ' newSeqNum:' + this.seekSequenceNum);
 
   if (this.state == DashPlayer.SEEKING) {
     this.log('Already seeking...');
@@ -866,6 +892,9 @@ DashPlayer.prototype.doSeeking = function() {
   }
 
   this.changeState(DashPlayer.SEEKING);
+
+  if (this.mediaSourceVersion_ == 0.5)
+    this.videoElement.webkitSourceAbort(this.mediaSourceIDString_);
 
   var vid = this.adaptiveStreams_['video'];
   if (vid.fetchingClusters_) {
@@ -972,8 +1001,13 @@ DashPlayer.prototype.appendData = function(data) {
     this.log('Error appendData() state != LOADING state:' + this.state +
              ' data.length:' + data.length);
 
-  if (this.state == DashPlayer.LOADING)
-    this.videoElement.webkitSourceAppend(data);
+  if (this.state == DashPlayer.LOADING) {
+    if (this.mediaSourceVersion_ == 0.5) {
+      this.videoElement.webkitSourceAppend(this.mediaSourceIDString_, data);
+    } else {
+      this.videoElement.webkitSourceAppend(data);
+    }
+  }
 };
 
 /**
@@ -2364,7 +2398,7 @@ DashPlayer.prototype.onPartialCueDescDownload = function(webmStream,
 
   //Check to see if a seek happened while we were getting the cluster.
   if (seqNum != this.seekSequenceNum) {
-    this.logCue('onPartialCluster() != this.seekSequenceNum' +
+    this.logCue('onPartialCluster() != this.seekSequenceNum:' +
                 this.seekSequenceNum, stream.source.representation.id, seqNum,
                 stream.cueDesc, buf.length, stream.cueBytesDownloaded_,
                 nextCueDesc);

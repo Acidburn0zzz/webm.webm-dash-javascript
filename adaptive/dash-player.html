@@ -90,10 +90,10 @@ function onStartClick() {
   if (!videoTag.webkitMediaSourceURL) {
     var str = 'Video tag does not have Media Source API support!';
     log(str);
-    alert(str + '\n' +
-          'Make sure you are using Chrome version 17+.\n' +
-          'Then go to "chrome://flags" and turn on\n' +
-          '"Enable Media Source API on <video> elements"');
+    alert(str + '\n\n' +
+          'To run the demo you must have Chrome or Chromium version 17+' +
+          ' and enable the following feature in chrome://flags\n\n' +
+          'Enable Media Source API on <video> elements\n');
     return;
   }
 
