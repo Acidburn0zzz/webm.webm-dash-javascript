@@ -35,7 +35,7 @@ DashParser.HTTP_OK_STATUS_CODE = 200;
  * @return {string} version.
  */
 DashParser.version = function() {
-  return '0.1.0.2';
+  return '0.1.1.0';
 };
 
 /**
@@ -117,11 +117,11 @@ DashParser.prototype.load = function(callback) {
       t.callback(new ErrorStatus('Bad xhReq.status:' + xhReq.status));
     } else {
       t.xmlDoc_ = xhReq.responseXML;
-      t.mpd = new MPD();
+      t.mpd = new MPD(t.url_);
       var res = t.mpd.parseXmlDoc(t.xmlDoc_);
       if (res.status != ErrorStatus.STATUS_OK) {
         var errorStr = 'DashParser Parsing XML document failed. :' + res.reason;
-        this.log(errorStr);
+        t.log(errorStr);
         t.callback(new ErrorStatus(errorStr));
       }
 
@@ -191,10 +191,12 @@ SegmentBase.prototype.indexRange = null;
 
 /**
  * Class representing a MPD element.
+ * @param {manifestUrl} Manifest URL requested to get the data for this object.
  * @constructor
  */
-function MPD() {
+function MPD(manifestUrl) {
   this.periodList = [];
+  this.manifestUrl = manifestUrl;
 }
 
 /**
@@ -237,6 +239,12 @@ MPD.prototype.type_ = 'static';
  * @type {Array.<Period>}
  */
 MPD.prototype.periodList = null;
+
+/**
+ * URL for the manifest used to construct this object.
+ * @type {string}
+ */
+MPD.prototype.manifestUrl = null;
 
 /**
  * Parse the mpd element from the XML document.
@@ -781,6 +789,17 @@ Representation.prototype.parseXmlNode = function(node) {
   var baseUrlList = node.getElementsByTagName('BaseURL');
   if (baseUrlList.length > 0) {
     this.url_ = baseUrlList[0].childNodes[0].nodeValue;
+
+    // Check to see if the URL is relative try to resolve it against
+    // the manifest URL if possible.
+    if (this.url_[0] != '/' && this.url_.indexOf(':') == -1) {
+      var manifestUrl = this.parent.parent.parent.manifestUrl;
+      var lastSlash = manifestUrl.lastIndexOf('/');
+      if (lastSlash != -1) {
+        var manifestBaseUrl = manifestUrl.slice(0, lastSlash);
+        this.url_ = manifestBaseUrl + '/' + this.url_;
+      }
+    }
   }
 
   // There should be at most one SegmentBase element.

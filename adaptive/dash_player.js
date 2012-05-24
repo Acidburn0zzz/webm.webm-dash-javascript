@@ -609,7 +609,7 @@ DashPlayer.ERROR = 6;
  * @return {string} version.
  */
 DashPlayer.version = function() {
-  return '0.2.0.0';
+  return '0.2.0.1';
 };
 
 /**
@@ -989,7 +989,8 @@ DashPlayer.prototype.doKeyAdded = function() {
  */
 DashPlayer.prototype.reportParseError = function() {
   this.changeState(DashPlayer.ERROR);
-  this.videoElement.webkitSourceEndOfStream(HTMLMediaElement.EOS_DECODE_ERR);
+  if (this.videoElement.webkitSourceState == HTMLMediaElement.SOURCE_OPEN)
+    this.videoElement.webkitSourceEndOfStream(HTMLMediaElement.EOS_DECODE_ERR);
 };
 
 /**
@@ -1124,7 +1125,7 @@ DashPlayer.prototype.parseManifest = function(openCallback) {
   this.dashParser.load(function(res) {
     var localRes = t.parseManifestCallback(res);
     if (localRes.status != ErrorStatus.STATUS_OK) {
-      this.onParseHeadersDone(false);
+      t.onParseHeadersDone(false);
     } else {
       openCallback();
     }
