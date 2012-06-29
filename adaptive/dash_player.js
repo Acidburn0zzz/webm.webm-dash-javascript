@@ -609,7 +609,7 @@ DashPlayer.ERROR = 6;
  * @return {string} version.
  */
 DashPlayer.version = function() {
-  return '0.2.0.1';
+  return '0.2.0.2';
 };
 
 /**
@@ -836,11 +836,6 @@ DashPlayer.prototype.doOpen = function(setupStreamsFunction) {
                    DashPlayer.stateToString(this.state);
     this.log(errorStr);
     return new ErrorStatus(errorStr);
-  }
-
-  if (this.mediaSourceVersion_ == 0.5) {
-    this.videoElement.webkitSourceAddId(this.mediaSourceIDString_,
-                                        'video/webm; codecs="vp8, vorbis"');
   }
 
   if (this.dashParser == null) {
@@ -1172,6 +1167,16 @@ DashPlayer.prototype.initializeFirstStreams_ = function() {
     var aud = new AdaptiveWebMStream();
     aud.source = webmAudio;
     this.adaptiveStreams_['audio'] = aud;
+  }
+
+  if (this.mediaSourceVersion_ == 0.5) {
+    var codecStr = 'video/webm; codecs="vp8"';
+    if (this.adaptiveStreams_['video'] && this.adaptiveStreams_['audio']) {
+      codecStr = 'video/webm; codecs="vp8, vorbis"';
+    } else if (this.adaptiveStreams_['audio']) {
+      codecStr = 'video/webm; codecs="vorbis"';
+    }
+    this.videoElement.webkitSourceAddId(this.mediaSourceIDString_, codecStr);
   }
 
   return new OKStatus();
