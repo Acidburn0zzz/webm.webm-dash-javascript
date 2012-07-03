@@ -561,6 +561,9 @@ function DashPlayer(url, videoElement, opt_manager, opt_log) {
   this.videoElement.addEventListener('webkitneedkey', function(e) {
     t.doNeedKey(e);
   });
+  this.videoElement.addEventListener('webkitkeymessage', function(e) {
+    t.doKeyMessage(e);
+  });
   this.videoElement.addEventListener('webkitkeyadded', function() {
     t.doKeyAdded();
   });
@@ -609,7 +612,7 @@ DashPlayer.ERROR = 6;
  * @return {string} version.
  */
 DashPlayer.version = function() {
-  return '0.2.0.2';
+  return '0.2.1.0';
 };
 
 /**
@@ -912,12 +915,12 @@ DashPlayer.prototype.doSeeking = function() {
  * Add the specified key to the Media Element.
  * @param {Uint8Array} key The key.
  * @param {Uint8Array} initData initData corresponding to the key.
+ * @param {string} sessionId sessionId corresponding to the key.
  */
-DashPlayer.prototype.addKey = function(key, initData) {
-  var keyId = initData;
-  this.log('Adding key for the following ID: ');
-  this.log(keyId);
-  this.videoElement.webkitAddKey('webkit-org.w3.clearkey', key, initData);
+DashPlayer.prototype.addKey = function(key, initData, sessionId) {
+  this.log('Adding key for the following sessionId: ' + sessionId);
+  this.videoElement.webkitAddKey('webkit-org.w3.clearkey',
+                                 key, initData, sessionId);
 };
 
 /**
@@ -927,7 +930,7 @@ DashPlayer.prototype.addKey = function(key, initData) {
 function handleLicenseResponse() {
   if (this.status == 200 && this.response != null) {
     var key = new Uint8Array(this.response);
-    this.playerPrototype.addKey(key, this.initData);
+    this.playerPrototype.addKey(key, this.message, this.sessionId);
     return;
   }
   alert('Error obtaining key!');
@@ -935,23 +938,26 @@ function handleLicenseResponse() {
 
 /**
  * Sends a request for a license to the server.
- * @param {Uint8Array} initData initData corresponding to the requested key.
+ * @param {Uint8Array} message unique key identifier extracted from the
+ *     initData parameter of generateKeyRequest().
+ * @param {string} sessionId sessionId corresponding to the requested key.
  * @param {DashPlayer.prototype} playerPrototype requesting the key.
  */
-function requestLicense(initData, playerPrototype) {
+function requestLicense(message, sessionId, playerPrototype) {
   var licenseUrl = 'key.bin';
 
   var xhr = new XMLHttpRequest();
-  xhr.initData = initData;  // Store so can associate with key in response.
+  xhr.message = message;  // Store to pass as initData parameter in addKey().
+  xhr.sessionId = sessionId;  // Store so can associate with key in response.
   xhr.playerPrototype = playerPrototype;  // Store for reference in callback.
   xhr.responseType = 'arraybuffer';  // Can easily convert to a Uint8Array.
   xhr.onload = handleLicenseResponse;
-  //Because the demo runs on a simple web sever, we must use GET.
-  //A more realistic solution is:
-  //var licenseUrl = 'license.example.com';
-  //var licenseRequest = initData;
-  //xhr.open('POST', licenseUrl, true);
-  //xhr.send(licenseRequest);
+  // Because the demo runs on a simple web sever, we must use GET.
+  // A more realistic solution is:
+  // var licenseUrl = 'license.example.com';
+  // var licenseRequest = message;
+  // xhr.open('POST', licenseUrl, true);
+  // xhr.send(licenseRequest);
   xhr.open('GET', licenseUrl);
   xhr.send();
 }
@@ -962,11 +968,26 @@ function requestLicense(initData, playerPrototype) {
  */
 DashPlayer.prototype.doNeedKey = function(e) {
   this.log('doNeedKey() : ');
-  var keyId = e.initData;
-  this.log('Need key for the following ID: ');
-  this.log(keyId);
+  this.log('Need key for the following ID: ' + e.initData);
+  this.videoElement.webkitGenerateKeyRequest('webkit-org.w3.clearkey',
+                                             e.initData);
+};
 
-  requestLicense(e.initData, this);
+/**
+ * Handle Media Element keymessage event.
+ * @param {MediaKeyEvent} e Need key event.
+ */
+DashPlayer.prototype.doKeyMessage = function(e) {
+  this.log('doKeyMessage() : ');
+  if (e.keySystem != 'webkit-org.w3.clearkey') {
+    this.log('event.keySystem not supported :' + e.keySystem);
+    this.reportParseError();
+    return;
+  }
+
+  // Because the demo runs on a simple web sever, we must use GET.
+  // A more realistic solution would pass e.message to a key server.
+  requestLicense(e.message, e.sessionId, this);
 };
 
 /**
