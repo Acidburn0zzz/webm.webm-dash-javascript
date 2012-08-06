@@ -612,7 +612,7 @@ DashPlayer.ERROR = 6;
  * @return {string} version.
  */
 DashPlayer.version = function() {
-  return '0.2.1.0';
+  return '0.2.2.0';
 };
 
 /**
@@ -995,9 +995,6 @@ DashPlayer.prototype.doKeyMessage = function(e) {
  */
 DashPlayer.prototype.doKeyAdded = function() {
   this.log('doKeyAdded() : ');
-  // TODO(xhwang): Remove and restore original call point when Chrome is capable
-  // of resuming playback when key is added. See http://crbug.com/125753.
-  this.loadFirstClusters();
 };
 
 /**
@@ -1335,11 +1332,8 @@ DashPlayer.prototype.onParseHeadersDone = function(success) {
 
   this.changeState(DashPlayer.LOADING);
   this.appendData(infoTracks);
-  // TODO(xhwang): Until Chrome is capable of resuming playback when a key is
-  // added, we must not load the clusters. See http://crbug.com/125753.
-  // For now, only do this if EME is not enabled.
-  if (!this.videoElement.webkitAddKey)
-    this.loadFirstClusters();
+
+  this.loadFirstClusters();
 };
 
 /**
