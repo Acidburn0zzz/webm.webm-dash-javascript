@@ -11,6 +11,10 @@
  * Playback is only for WebM files. The parsing of the level 1 elements is
  * done in javascript and the media data is sent to the video tag through the
  * Media Source API. The streams must consist of separate audio and video.
+ *
+ * NOTE: This file uses a deprecated version (<= v0.5) of the Media Source API!
+         Please see dash_player.js for a current version of the player.
+ *
  */
 
 'use strict';
@@ -538,22 +542,26 @@ function DashPlayer(url, videoElement, opt_manager, opt_log) {
   this.webMFilesMap_ = {};
   this.eventCallbacks_ = {};
 
-  this.mediaSource = new MediaSource();
+  this.mediaSourceVersion_ = 0.3;
+  if (this.videoElement.webkitSourceAddId)
+    this.mediaSourceVersion_ = 0.5;
+
+  this.log('Created DashPlayer. this.mediaSourceVersion_:' +
+           this.mediaSourceVersion_);
 
   var t = this;
-  this.mediaSource.addEventListener('webkitsourceopen', function() {
+  this.videoElement.addEventListener('webkitsourceopen', function() {
     t.doOpen(function() {
       //t.loadFirstHeaders_();
       t.loadFirstHeadersParallel_();
     });
   });
-  this.mediaSource.addEventListener('webkitsourceended', function() {
+  this.videoElement.addEventListener('webkitsourceended', function() {
     t.doEnded();
   });
-  this.mediaSource.addEventListener('webkitsourceclose', function() {
+  this.videoElement.addEventListener('webkitsourceclose', function() {
     t.doClose();
   });
-
   this.videoElement.addEventListener('webkitneedkey', function(e) {
     t.doNeedKey(e);
   });
@@ -567,7 +575,7 @@ function DashPlayer(url, videoElement, opt_manager, opt_log) {
     t.doSeeking();
   });
 
-  this.videoElement.src = webkitURL.createObjectURL(this.mediaSource);
+  this.videoElement.src = videoElement.webkitMediaSourceURL;
 }
 
 /**
@@ -610,7 +618,7 @@ DashPlayer.ERROR = 6;
  * @return {string} version.
  */
 DashPlayer.version = function() {
-  return '0.3.0.0';
+  return '0.2.3.0';
 };
 
 /**
@@ -721,12 +729,6 @@ DashPlayer.prototype.state = DashPlayer.STOPPED;
 DashPlayer.prototype.videoElement = null;
 
 /**
- * Media source used to create source buffers and append data.
- * @type {MediaSource}
- */
-DashPlayer.prototype.mediaSource = null;
-
-/**
  * The mpd describing the manifest.
  * @type {MPD}
  */
@@ -787,18 +789,18 @@ DashPlayer.prototype.period = null;
 DashPlayer.prototype.webMFilesMap_ = null;
 
 /**
- * The audio source buffer for Media Source API.
+ * The source ID string for Media Source API.
  * @private
- * @type {SourceBuffer}
+ * @type {string}
  */
-DashPlayer.prototype.audioSourceBuffer = null;
+DashPlayer.prototype.mediaSourceIDString_ = 'source1';
 
 /**
- * The video source buffer for Media Source API.
+ * Media Source API version.
  * @private
- * @type {SourceBuffer}
+ * @type {number}
  */
-DashPlayer.prototype.videoSourceBuffer = null;
+DashPlayer.prototype.mediaSourceVersion_ = 0.3;
 
 /**
  * Logging function to be set by the application.
@@ -895,10 +897,8 @@ DashPlayer.prototype.doSeeking = function() {
 
   this.changeState(DashPlayer.SEEKING);
 
-  if (this.audioSourceBuffer)
-    this.audioSourceBuffer.abort();
-  if (this.videoSourceBuffer)
-    this.videoSourceBuffer.abort();
+  if (this.mediaSourceVersion_ == 0.5)
+    this.videoElement.webkitSourceAbort(this.mediaSourceIDString_);
 
   var vid = this.adaptiveStreams_['video'];
   if (vid.fetchingClusters_) {
@@ -1008,21 +1008,25 @@ DashPlayer.prototype.doKeyAdded = function() {
  */
 DashPlayer.prototype.reportParseError = function() {
   this.changeState(DashPlayer.ERROR);
-  if (this.mediaSource.readyState == 'open')
-    this.mediaSource.endOfStream('decode');
+  if (this.videoElement.webkitSourceState == HTMLMediaElement.SOURCE_OPEN)
+    this.videoElement.webkitSourceEndOfStream(HTMLMediaElement.EOS_DECODE_ERR);
 };
 
 /**
  * Appends WebM data to the video tag.
  * @param {Uint8Array} data WebM data.
  */
-DashPlayer.prototype.appendData = function(data, sourceBuffer) {
+DashPlayer.prototype.appendData = function(data) {
   if (this.state != DashPlayer.LOADING)
     this.log('Error appendData() state != LOADING state:' + this.state +
              ' data.length:' + data.length);
 
   if (this.state == DashPlayer.LOADING) {
-    sourceBuffer.append(data);
+    if (this.mediaSourceVersion_ == 0.5) {
+      this.videoElement.webkitSourceAppend(this.mediaSourceIDString_, data);
+    } else {
+      this.videoElement.webkitSourceAppend(data);
+    }
   }
 };
 
@@ -1030,7 +1034,7 @@ DashPlayer.prototype.appendData = function(data, sourceBuffer) {
  * Tells the video tag there is no more data for all streams.
  */
 DashPlayer.prototype.endOfStream = function() {
-  this.mediaSource.endOfStream();
+  this.videoElement.webkitSourceEndOfStream(HTMLMediaElement.EOS_NO_ERROR);
 };
 
 
@@ -1189,10 +1193,15 @@ DashPlayer.prototype.initializeFirstStreams_ = function() {
     this.adaptiveStreams_['audio'] = aud;
   }
 
-  if (this.adaptiveStreams_['video'])
-    this.videoSourceBuffer = this.mediaSource.addSourceBuffer('video/webm; codecs="vp8"');
-  if (this.adaptiveStreams_['audio'])
-    this.audioSourceBuffer = this.mediaSource.addSourceBuffer('video/webm; codecs="vorbis"');
+  if (this.mediaSourceVersion_ == 0.5) {
+    var codecStr = 'video/webm; codecs="vp8"';
+    if (this.adaptiveStreams_['video'] && this.adaptiveStreams_['audio']) {
+      codecStr = 'video/webm; codecs="vp8, vorbis"';
+    } else if (this.adaptiveStreams_['audio']) {
+      codecStr = 'video/webm; codecs="vorbis"';
+    }
+    this.videoElement.webkitSourceAddId(this.mediaSourceIDString_, codecStr);
+  }
 
   return new OKStatus();
 };
@@ -1298,39 +1307,37 @@ DashPlayer.prototype.onParseHeadersDone = function(success) {
   var vid = this.adaptiveStreams_['video'];
   var aud = this.adaptiveStreams_['audio'];
 
-  this.changeState(DashPlayer.LOADING);
-
-  var t = this;
-
-  if (aud) {
-    var audioFile = new HttpFile(aud.source.representation.url_, this.log);
-    var audioHeader = aud.source.representation.headerRange();
-    var audioOffset = audioHeader[0];
-    var audioSize = audioHeader[1] - audioOffset;
-
-    audioFile.fetchBytesUnbuffered(audioOffset, audioSize, function(buffer) {
-      if (!buffer) {
-        t.log('No audio header buffer found.');
-        t.reportParseError();
-        return;
-      }
-      t.appendData(buffer, t.audioSourceBuffer);
-    });
+  var info = vid.source.parser.getInfo();
+  if (!info) {
+    this.log('Info is null!');
+    this.reportParseError();
+    return;
   }
 
-  var videoFile = new HttpFile(vid.source.representation.url_, this.log);
-  var videoHeader = vid.source.representation.headerRange();
-  var videoOffset = videoHeader[0];
-  var videoSize = videoHeader[1] - videoOffset;
-
-  videoFile.fetchBytesUnbuffered(videoOffset, videoSize, function(buffer) {
-    if (!buffer) {
-      t.log('No video header buffer found.');
-      t.reportParseError();
-      t;
+  var tracks = null;
+  if (aud) {
+    var res = this.createTracksElement();
+    if (res.status != ErrorStatus.STATUS_OK) {
+      this.log('Failed to create Tracks element. :' + res.reason);
+      this.reportParseError();
+      return;
     }
-    t.appendData(buffer, t.videoSourceBuffer);
-  });
+    tracks = res.value;
+  } else {
+    tracks = vid.source.parser.getTracks();
+    if (!tracks) {
+      this.log('Tracks is null!');
+      this.reportParseError();
+      return;
+    }
+  }
+
+  var infoTracks = new Uint8Array(info.length + tracks.length);
+  infoTracks.set(info, 0);
+  infoTracks.set(tracks, info.length);
+
+  this.changeState(DashPlayer.LOADING);
+  this.appendData(infoTracks);
 
   this.loadFirstClusters();
 };
@@ -1381,7 +1388,7 @@ DashPlayer.prototype.sendClusters = function() {
     if (data) {
       //this.log('sendClusters() Rep[' + aud.source.representation.id +
       //         '] data.length:' + data.length);
-      this.appendData(data, this.audioSourceBuffer);
+      this.appendData(data);
     }
   }
 
@@ -1389,7 +1396,7 @@ DashPlayer.prototype.sendClusters = function() {
   if (data) {
     //this.log('sendClusters() Rep[' + vid.source.representation.id +
     //         '] data.length:' + data.length);
-    this.appendData(data, this.videoSourceBuffer);
+    this.appendData(data);
   }
 
   // Check if the streams are finished.
@@ -2230,6 +2237,47 @@ DashPlayer.prototype.switchVideoStream = function(switchWebM) {
 };
 
 /**
+ * Creates a WebM Tracks element from an audio and a video Track element. This
+ * is needed for the Media Source API because it assumes the the data is muxed
+ * in one WebM segment.
+ * @return {Uint8Array} The Tracks element.
+ * @return {Object} The status object. {Object}.value returns the Tracks
+ *     element.
+ */
+DashPlayer.prototype.createTracksElement = function() {
+  // Only create a tracks element if there is separate audio and video.
+  var vid = this.adaptiveStreams_['video'];
+  var aud = this.adaptiveStreams_['audio'];
+  if (!vid.source || !aud)
+    return new ErrorStatus('Video or audio file is null.');
+  if (aud.source.parser.getTrackObjectLength() != 1)
+    return new ErrorStatus('Could not get audio track length.');
+  if (vid.source.parser.getTrackObjectLength() != 1)
+    return new ErrorStatus('Could not get video track length.');
+
+  var audioTrackObject = aud.source.parser.getTrackObject(0);
+  var videoTrackObject = vid.source.parser.getTrackObject(0);
+
+  var tracksElementHeader = new Uint8Array([0x16, 0x54, 0xAE, 0x6B,
+                                            0x01, 0x00, 0x00, 0x00,
+                                            0x00, 0x00, 0x00, 0x00]);
+  var headerSize = tracksElementHeader.length;
+  var dataSize = audioTrackObject.buf.length + videoTrackObject.buf.length;
+  var tracksElement = new Uint8Array(headerSize + dataSize);
+  tracksElement.set(tracksElementHeader, 0);
+  tracksElement.set(videoTrackObject.buf, headerSize);
+  tracksElement.set(audioTrackObject.buf,
+                    headerSize + videoTrackObject.buf.length);
+  var tmp = dataSize;
+  for (var i = 0; i < 7; ++i) {
+    tracksElement[11 - i] = tmp & 0xff;
+    tmp >>= 8;
+  }
+
+  return {status: ErrorStatus.STATUS_OK, value: tracksElement};
+};
+
+/**
  * Helper logging function for cueDesc objects.
  * @param {string} str Text to prepend to the log message.
  * @param {string} id The representation object's id.
@@ -2468,7 +2516,7 @@ DashPlayer.prototype.sendPartialClusters = function() {
       //this.log('Send Audio length:' + data.length +
       //         ' time:' + aud.lastTimeSent_ +
       //         ' queue size:' + aud.clusterQueue.length);
-      this.appendData(data, this.audioSourceBuffer);
+      this.appendData(data);
     }
   }
 
@@ -2477,7 +2525,7 @@ DashPlayer.prototype.sendPartialClusters = function() {
     //this.log('Send Video length:' + data.length +
     //         ' time:' + vid.lastTimeSent_ +
     //         ' queue size:' + vid.clusterQueue.length);
-    this.appendData(data, this.videoSourceBuffer);
+    this.appendData(data);
   }
 
   // Check if the streams are finished.

@@ -18,7 +18,18 @@ be found in the AUTHORS file in the root of the source tree.
 <script type="text/javascript" src="bandwidth.js"> </script>
 <script type="text/javascript" src="bandwidth_manager.js"> </script>
 <script type="text/javascript" src="dash_parser.js"> </script>
-<script type="text/javascript" src="dash_player.js"> </script>
+
+<script type="text/javascript">
+var mediaSourceObjectAvailable = false;
+try {
+  var testMediaSource = new MediaSource();
+  includeScript('dash_player.js');
+  mediaSourceObjectAvailable = true;
+} catch (e) {
+  // This file uses a deprecated version (<= v0.5) of the MSE spec, do not use.
+  includeScript('dash_player_deprecated.js');
+}
+</script>
 
 <script type="text/javascript">
 
@@ -87,7 +98,8 @@ function onStartClick() {
   }
 
   var videoTag = document.getElementById('v');
-  if (!videoTag.webkitMediaSourceURL) {
+
+  if (!videoTag.webkitMediaSourceURL && !mediaSourceObjectAvailable) {
     var str = 'Video tag does not have Media Source API support!';
     log(str);
     alert(str + '\n\n' +
@@ -107,7 +119,6 @@ function onStartClick() {
   versions.innerHTML = DashPlayer.versionStringsHTML();
 
   videoTag.controls = true;
-  videoTag.src = videoTag.webkitMediaSourceURL;
 
   if (renderChunkGraph) {
     wmp.setEventListener('chunk_download', onChunkDownload);

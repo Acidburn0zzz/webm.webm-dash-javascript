@@ -130,3 +130,13 @@ function dump_hash(o) {
     log(i + ' : ' + o[i]);
   }
 }
+
+function includeScript(filename) {
+  var head = document.getElementsByTagName('head').item(0);
+  var js = document.createElement('script');
+  js.setAttribute('language', 'javascript');
+  js.setAttribute('type', 'text/javascript');
+  js.setAttribute('src', filename);
+  head.appendChild(js);
+  return false;
+}
