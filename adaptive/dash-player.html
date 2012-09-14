@@ -22,6 +22,8 @@ be found in the AUTHORS file in the root of the source tree.
 <script type="text/javascript">
 var mediaSourceObjectAvailable = false;
 try {
+  if (!window.MediaSource)
+    window.MediaSource = window.WebKitMediaSource;
   var testMediaSource = new MediaSource();
   includeScript('dash_player.js');
   mediaSourceObjectAvailable = true;
