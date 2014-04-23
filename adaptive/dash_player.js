@@ -141,7 +141,7 @@ AdaptiveWebMFile.prototype.loadHeader = function(callback) {
   this.parser.log = this.log;
 
   var offset = header[0];
-  var size = header[1] - offset;
+  var size = header[1] - offset + 1;
 
   var t = this;
   this.parser.parseFirstHeaders(offset, size, function(success) {
@@ -155,7 +155,7 @@ AdaptiveWebMFile.prototype.loadHeader = function(callback) {
         return;
       }
       offset = index[0];
-      size = index[1] - offset;
+      size = index[1] - offset + 1;
 
       // TODO(fgalligan): Think about adding support to the manifest tool to
       // check that all segments in an AdaptationSet have the same offset.
@@ -247,7 +247,7 @@ AdaptiveWebMFile.prototype.loadIndex = function(callback) {
   this.parser.setDuration(duration);
 
   var offset = index[0];
-  var size = index[1] - offset;
+  var size = index[1] - offset + 1;
   var t = this;
   this.parser.fetchCues(offset, size, -1, function(success) {
     t.onLoadHeader(success, callback);
@@ -312,7 +312,7 @@ AdaptiveWebMFile.prototype.loadExtraDataParallel = function(callback) {
   var headersParsed = false;
   var cuesParsed = false;
   var offset = header[0];
-  var size = header[1] - offset;
+  var size = header[1] - offset + 1;
 
   this.parser.parseFirstHeadersUnbuffered(offset, size, function(success) {
     if (success) {
@@ -342,7 +342,7 @@ AdaptiveWebMFile.prototype.loadExtraDataParallel = function(callback) {
   });
 
   offset = index[0];
-  size = index[1] - offset;
+  size = index[1] - offset + 1;
   this.parser.fetchCues(offset, size, -1, function(success) {
     if (success) {
       if (headersParsed) {
@@ -541,16 +541,16 @@ function DashPlayer(url, videoElement, opt_manager, opt_log) {
   this.mediaSource = new MediaSource();
 
   var t = this;
-  this.mediaSource.addEventListener('webkitsourceopen', function() {
+  this.mediaSource.addEventListener('sourceopen', function() {
     t.doOpen(function() {
       //t.loadFirstHeaders_();
       t.loadFirstHeadersParallel_();
     });
   });
-  this.mediaSource.addEventListener('webkitsourceended', function() {
+  this.mediaSource.addEventListener('sourceended', function() {
     t.doEnded();
   });
-  this.mediaSource.addEventListener('webkitsourceclose', function() {
+  this.mediaSource.addEventListener('sourceclose', function() {
     t.doClose();
   });
 
@@ -610,7 +610,7 @@ DashPlayer.ERROR = 6;
  * @return {string} version.
  */
 DashPlayer.version = function() {
-  return '0.3.0.0';
+  return '0.3.1.1';
 };
 
 /**
@@ -1022,7 +1022,7 @@ DashPlayer.prototype.appendData = function(data, sourceBuffer) {
              ' data.length:' + data.length);
 
   if (this.state == DashPlayer.LOADING) {
-    sourceBuffer.append(data);
+    sourceBuffer.appendBuffer(data);
   }
 };
 
@@ -1306,7 +1306,7 @@ DashPlayer.prototype.onParseHeadersDone = function(success) {
     var audioFile = new HttpFile(aud.source.representation.url_, this.log);
     var audioHeader = aud.source.representation.headerRange();
     var audioOffset = audioHeader[0];
-    var audioSize = audioHeader[1] - audioOffset;
+    var audioSize = audioHeader[1] - audioOffset + 1;
 
     audioFile.fetchBytesUnbuffered(audioOffset, audioSize, function(buffer) {
       if (!buffer) {
@@ -1321,7 +1321,7 @@ DashPlayer.prototype.onParseHeadersDone = function(success) {
   var videoFile = new HttpFile(vid.source.representation.url_, this.log);
   var videoHeader = vid.source.representation.headerRange();
   var videoOffset = videoHeader[0];
-  var videoSize = videoHeader[1] - videoOffset;
+  var videoSize = videoHeader[1] - videoOffset + 1;
 
   videoFile.fetchBytesUnbuffered(videoOffset, videoSize, function(buffer) {
     if (!buffer) {
